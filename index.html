@@ -1,47 +1,241 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Slot Booking</title>
+<meta charset="UTF-8" />
+<title>Slot Booking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f7fa;
+        margin: 0;
+        padding: 0;
+    }
+
+    .container {
+        max-width: 480px;
+        margin: auto;
+        padding: 20px;
+    }
+
+    h2 {
+        text-align: center;
+        margin-top: 10px;
+    }
+
+    .calendar {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+        margin-top: 20px;
+    }
+
+    .day {
+        padding: 10px;
+        background: white;
+        border-radius: 8px;
+        text-align: center;
+        cursor: pointer;
+        border: 1px solid #ddd;
+    }
+
+    .day:hover {
+        background: #e3f2fd;
+    }
+
+    .day.selected {
+        background: #1976d2;
+        color: white;
+    }
+
+    .slots {
+        margin-top: 25px;
+    }
+
+    .slot-btn {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: #fff;
+        border: 2px solid #1976d2;
+        color: #1976d2;
+        font-size: 16px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .slot-btn.booked {
+        border-color: gray;
+        color: gray;
+        pointer-events: none;
+        background: #f0f0f0;
+    }
+
+    .slot-btn:hover:not(.booked) {
+        background: #1976d2;
+        color: white;
+    }
+
+    #nameInput {
+        width: 100%;
+        padding: 12px;
+        margin-top: 15px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 16px;
+    }
+
+    #response {
+        margin-top: 20px;
+        padding: 10px;
+        font-weight: bold;
+        text-align: center;
+    }
+</style>
 </head>
 <body>
-  <h2>Slot Booking</h2>
-  <div id="slots"></div>
+
+<div class="container">
+    <h2>Slot Booking</h2>
+
+    <h3>Select Date</h3>
+    <div id="calendar" class="calendar"></div>
+
+    <h3>Available Slots</h3>
+    <div id="slots" class="slots">Select a date to view slots</div>
+
+    <input type="text" id="nameInput" placeholder="Enter your name" />
+
+    <div id="response"></div>
+</div>
 
 <script>
-const API = "https://script.google.com/macros/s/AKfycbxdm0zx1li6OfO6ShYWDPkrfCMX0dnDEELOSp89Vuv_wlsBvNl4YReBFnz-ETpsSuTZ/exec";
+/* CONFIG — replace these */
+const API_URL = "https://script.google.com/macros/s/AKfycbx-NXUcmo2eqp3C7yp8scmdsYxY57ucdfTg62oOSA5wJYQsiSjETEl6M8Xh3XuRSrDQ/exec;
+const APP_SECRET = "msdamdsmdhmdamd2012";
 
+/* Global data */
+let allSlots = [];
+let selectedDate = "";
+
+/* Load all slots on page load */
 async function loadSlots() {
-  const res = await fetch(API);
-  const slots = await res.json();
-
-  const container = document.getElementById("slots");
-  container.innerHTML = "";
-
-  slots.forEach(s => {
-    const btn = document.createElement("button");
-    btn.innerText = `${s.date} ${s.time} - ${s.status}`;
-    btn.disabled = (s.status === "booked");
-
-    btn.onclick = () => bookSlot(s.date, s.time);
-
-    container.appendChild(btn);
-    container.appendChild(document.createElement("br"));
-  });
+    try {
+        const res = await fetch(API_URL);
+        allSlots = await res.json();
+        buildCalendar();
+    } catch (err) {
+        document.getElementById("response").innerText = "Error loading slots.";
+    }
 }
 
+/* Build simple monthly calendar */
+function buildCalendar() {
+    const calendar = document.getElementById("calendar");
+    calendar.innerHTML = "";
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    // Add blank cells before start of month
+    for (let i = 0; i < firstDay; i++) {
+        const empty = document.createElement("div");
+        calendar.appendChild(empty);
+    }
+
+    // Add actual days
+    for (let d = 1; d <= totalDays; d++) {
+        const cell = document.createElement("div");
+        cell.className = "day";
+        const dateStr = `${year}-${(month+1)
+            .toString()
+            .padStart(2,"0")}-${d.toString().padStart(2,"0")}`;
+        cell.innerText = d;
+
+        cell.onclick = () => {
+            selectedDate = dateStr;
+
+            document
+                .querySelectorAll(".day")
+                .forEach(x => x.classList.remove("selected"));
+            cell.classList.add("selected");
+
+            showSlotsForDate(dateStr);
+        };
+
+        calendar.appendChild(cell);
+    }
+}
+
+/* Show time slots for the selected date */
+function showSlotsForDate(date) {
+    const slotsDiv = document.getElementById("slots");
+    slotsDiv.innerHTML = "";
+
+    const todaysSlots = allSlots.filter(s => s.date === date);
+
+    if (todaysSlots.length === 0) {
+        slotsDiv.innerHTML = "No slots for this date";
+        return;
+    }
+
+    todaysSlots.forEach(slot => {
+        const btn = document.createElement("button");
+        btn.className = "slot-btn";
+        btn.innerText = slot.time;
+
+        if (slot.status === "booked") {
+            btn.classList.add("booked");
+            btn.innerText += " (Booked)";
+        }
+
+        btn.onclick = () => bookSlot(date, slot.time);
+
+        slotsDiv.appendChild(btn);
+    });
+}
+
+/* Book a slot */
 async function bookSlot(date, time) {
-  const name = prompt("Enter your name:");
-  if (!name) return;
+    const name = document.getElementById("nameInput").value.trim();
+    if (!name) {
+        alert("Enter your name first.");
+        return;
+    }
 
-  await fetch(API, {
-    method: "POST",
-    body: JSON.stringify({ date, time, name })
-  });
+    document.getElementById("response").innerText = "Booking...";
 
-  alert("Booked successfully");
-  loadSlots();
+    const body = {
+        date,
+        time,
+        name,
+        secret: APP_SECRET
+    };
+
+    const res = await fetch(API_URL, {
+        method: "POST",
+        body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+
+    if (data.status === "success") {
+        document.getElementById("response").innerText = "✔ Slot booked!";
+        await loadSlots(); 
+        showSlotsForDate(date);
+    } else if (data.status === "already_booked") {
+        document.getElementById("response").innerText = "⚠ Slot already booked.";
+    } else {
+        document.getElementById("response").innerText = "❌ Booking failed.";
+    }
 }
 
+/* INIT */
 loadSlots();
 </script>
 </body>
