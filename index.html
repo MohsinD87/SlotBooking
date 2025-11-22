@@ -1,242 +1,183 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>Slot Booking</title>
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-
-<style>
+  <meta charset="UTF-8">
+  <title>Slot Booking</title>
+  <style>
     body {
-        font-family: Arial, sans-serif;
-        background: #f5f7fa;
-        margin: 0;
-        padding: 0;
-    }
-
-    .container {
-        max-width: 480px;
-        margin: auto;
-        padding: 20px;
+      font-family: Arial, sans-serif;
+      background: #f3f5f7;
+      padding: 20px;
+      text-align: center;
     }
 
     h2 {
-        text-align: center;
-        margin-top: 10px;
+      color: #333;
     }
 
-    .calendar {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 8px;
-        margin-top: 20px;
+    #calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+      margin-top: 20px;
     }
 
     .day {
-        padding: 10px;
-        background: white;
-        border-radius: 8px;
-        text-align: center;
-        cursor: pointer;
-        border: 1px solid #ddd;
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 5px #ccc;
+      cursor: pointer;
     }
 
     .day:hover {
-        background: #e3f2fd;
+      background: #e7f1ff;
     }
 
-    .day.selected {
-        background: #1976d2;
-        color: white;
+    #slots {
+      margin-top: 30px;
     }
 
-    .slots {
-        margin-top: 25px;
+    .slot {
+      padding: 12px;
+      margin: 8px auto;
+      width: 220px;
+      border-radius: 6px;
+      background: #fff;
+      box-shadow: 0 0 5px #ccc;
+      cursor: pointer;
     }
 
-    .slot-btn {
-        width: 100%;
-        padding: 12px;
-        margin-bottom: 10px;
-        background: #fff;
-        border: 2px solid #1976d2;
-        color: #1976d2;
-        font-size: 16px;
-        border-radius: 8px;
-        cursor: pointer;
+    .slot.booked {
+      background: #ffdddd;
+      border-left: 5px solid #c62828;
+      cursor: not-allowed;
     }
 
-    .slot-btn.booked {
-        border-color: gray;
-        color: gray;
-        pointer-events: none;
-        background: #f0f0f0;
+    .slot.available {
+      background: #ddffdd;
+      border-left: 5px solid #2e7d32;
     }
 
-    .slot-btn:hover:not(.booked) {
-        background: #1976d2;
-        color: white;
+    .slot.available:hover {
+      background: #b9ffb9;
     }
-
-    #nameInput {
-        width: 100%;
-        padding: 12px;
-        margin-top: 15px;
-        border: 1px solid #ccc;
-        border-radius: 8px;
-        font-size: 16px;
-    }
-
-    #response {
-        margin-top: 20px;
-        padding: 10px;
-        font-weight: bold;
-        text-align: center;
-    }
-</style>
+  </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>Slot Booking</h2>
+  <h2>Select a Date</h2>
+  <div id="calendar"></div>
 
-    <h3>Select Date</h3>
-    <div id="calendar" class="calendar"></div>
-
-    <h3>Available Slots</h3>
-    <div id="slots" class="slots">Select a date to view slots</div>
-
-    <input type="text" id="nameInput" placeholder="Enter your name" />
-
-    <div id="response"></div>
-</div>
+  <h2>Available Slots</h2>
+  <div id="slots"></div>
 
 <script>
-/* CONFIG — replace these */
-const API_URL = "https://script.google.com/macros/s/AKfycbyhqEfHf_Qswsyw3tY3fAaPTmXJCp_PP9HOD83CNdLMPfDZ312Z3jubLwx3dHk35OEH/exec";
-const APP_SECRET = "msdamdsmdhmdamd2012";
+  const API_URL = "https://script.google.com/macros/s/AKfycbyhqEfHf_Qswsyw3tY3fAaPTmXJCp_PP9HOD83CNdLMPfDZ312Z3jubLwx3dHk35OEH/exec";  // <-- replace this
+  const APP_SECRET = "msdamdsmdhmdamd2012"; // <-- replace this
 
-/* Global data */
-let allSlots = [];
-let selectedDate = "";
+  // ----------------------------------------------------------
+  // 1. Build Calendar UI
+  // ----------------------------------------------------------
+  const calendarDiv = document.getElementById("calendar");
+  const slotsDiv = document.getElementById("slots");
 
-/* Load all slots on page load */
-async function loadSlots() {
-    try {
-        const res = await fetch(API_URL);
-        allSlots = await res.json();
-        buildCalendar();
-    } catch (err) {
-        document.getElementById("response").innerText = "Error loading slots.";
-    }
-}
-
-/* Build simple monthly calendar */
-function buildCalendar() {
-    const calendar = document.getElementById("calendar");
-    calendar.innerHTML = "";
-
+  function buildCalendar() {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    const dates = [];
 
-    const firstDay = new Date(year, month, 1).getDay();
-    const totalDays = new Date(year, month + 1, 0).getDate();
-
-    // Add blank cells before start of month
-    for (let i = 0; i < firstDay; i++) {
-        const empty = document.createElement("div");
-        calendar.appendChild(empty);
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(today.getDate() + i);
+      dates.push(d);
     }
 
-    // Add actual days
-    for (let d = 1; d <= totalDays; d++) {
-        const cell = document.createElement("div");
-        cell.className = "day";
-        const dateStr = `${year}-${(month+1)
-            .toString()
-            .padStart(2,"0")}-${d.toString().padStart(2,"0")}`;
-        cell.innerText = d;
+    calendarDiv.innerHTML = "";
 
-        cell.onclick = () => {
-            selectedDate = dateStr;
+    dates.forEach(date => {
+      const dayDiv = document.createElement("div");
+      dayDiv.className = "day";
+      dayDiv.innerHTML = `
+        <b>${date.toDateString()}</b>
+      `;
+      
+      dayDiv.onclick = () => loadSlots(date.toISOString().split("T")[0]);
+      
+      calendarDiv.appendChild(dayDiv);
+    });
+  }
 
-            document
-                .querySelectorAll(".day")
-                .forEach(x => x.classList.remove("selected"));
-            cell.classList.add("selected");
+  // ----------------------------------------------------------
+  // 2. Load Slots From Backend
+  // ----------------------------------------------------------
+  function loadSlots(dateStr) {
+    slotsDiv.innerHTML = "<p>Loading...</p>";
 
-            showSlotsForDate(dateStr);
-        };
-
-        calendar.appendChild(cell);
-    }
-}
-
-/* Show time slots for the selected date */
-function showSlotsForDate(date) {
-    const slotsDiv = document.getElementById("slots");
-    slotsDiv.innerHTML = "";
-
-    const todaysSlots = allSlots.filter(s => s.date === date);
-
-    if (todaysSlots.length === 0) {
-        slotsDiv.innerHTML = "No slots for this date";
-        return;
-    }
-
-    todaysSlots.forEach(slot => {
-        const btn = document.createElement("button");
-        btn.className = "slot-btn";
-        btn.innerText = slot.time;
-
-        if (slot.status === "booked") {
-            btn.classList.add("booked");
-            btn.innerText += " (Booked)";
+    fetch(`${API_URL}?date=${dateStr}&secret=${APP_SECRET}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          slotsDiv.innerHTML = "<p style='color:red'>Error loading slots</p>";
+          return;
         }
 
-        btn.onclick = () => bookSlot(date, slot.time);
+        displaySlots(data, dateStr);
+      })
+      .catch(err => {
+        slotsDiv.innerHTML = "<p style='color:red'>Network error</p>";
+      });
+  }
 
-        slotsDiv.appendChild(btn);
+  // ----------------------------------------------------------
+  // 3. Display Slots
+  // ----------------------------------------------------------
+  function displaySlots(slots, dateStr) {
+    slotsDiv.innerHTML = "";
+
+    slots.forEach(slot => {
+      const div = document.createElement("div");
+      div.className = "slot " + (slot.booked ? "booked" : "available");
+      div.textContent = slot.time + (slot.booked ? " — Booked" : " — Available");
+
+      if (!slot.booked) {
+        div.onclick = () => bookSlot(dateStr, slot.time);
+      }
+
+      slotsDiv.appendChild(div);
     });
-}
+  }
 
-/* Book a slot */
-async function bookSlot(date, time) {
-    const name = document.getElementById("nameInput").value.trim();
-    if (!name) {
-        alert("Enter your name first.");
-        return;
-    }
+  // ----------------------------------------------------------
+  // 4. Book a Slot
+  // ----------------------------------------------------------
+  function bookSlot(date, time) {
+    const name = prompt("Enter your name:");
 
-    document.getElementById("response").innerText = "Booking...";
+    if (!name) return;
 
-    const body = {
-        date,
-        time,
-        name,
-        secret: APP_SECRET
-    };
-
-    const res = await fetch(API_URL, {
-        method: "POST",
-        body: JSON.stringify(body)
+    fetch(API_URL, {
+      method: "POST",
+      body: JSON.stringify({
+        secret: APP_SECRET,
+        date: date,
+        time: time,
+        name: name
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        alert("Slot booked successfully!");
+        loadSlots(date);
+      } else {
+        alert("Error: " + data.error);
+      }
     });
+  }
 
-    const data = await res.json();
-
-    if (data.status === "success") {
-        document.getElementById("response").innerText = "✔ Slot booked!";
-        await loadSlots(); 
-        showSlotsForDate(date);
-    } else if (data.status === "already_booked") {
-        document.getElementById("response").innerText = "⚠ Slot already booked.";
-    } else {
-        document.getElementById("response").innerText = "❌ Booking failed.";
-    }
-}
-
-/* INIT */
-loadSlots();
+  // Start calendar
+  buildCalendar();
 </script>
+
 </body>
 </html>
