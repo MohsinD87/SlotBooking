@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Slot Booking</title>
+</head>
+<body>
+  <h2>Slot Booking</h2>
+  <div id="slots"></div>
+
+<script>
+const API = "YOUR_WEB_APP_URL";
+
+async function loadSlots() {
+  const res = await fetch(API);
+  const slots = await res.json();
+
+  const container = document.getElementById("slots");
+  container.innerHTML = "";
+
+  slots.forEach(s => {
+    const btn = document.createElement("button");
+    btn.innerText = `${s.date} ${s.time} - ${s.status}`;
+    btn.disabled = (s.status === "booked");
+
+    btn.onclick = () => bookSlot(s.date, s.time);
+
+    container.appendChild(btn);
+    container.appendChild(document.createElement("br"));
+  });
+}
+
+async function bookSlot(date, time) {
+  const name = prompt("Enter your name:");
+  if (!name) return;
+
+  await fetch(API, {
+    method: "POST",
+    body: JSON.stringify({ date, time, name })
+  });
+
+  alert("Booked successfully");
+  loadSlots();
+}
+
+loadSlots();
+</script>
+</body>
+</html>
