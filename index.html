@@ -1,182 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Slot Booking</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f3f5f7;
-      padding: 20px;
-      text-align: center;
-    }
+<meta charset="UTF-8">
+<title>Slot Booking</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-    h2 {
-      color: #333;
-    }
-
-    #calendar {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .day {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      box-shadow: 0 0 5px #ccc;
-      cursor: pointer;
-    }
-
-    .day:hover {
-      background: #e7f1ff;
-    }
-
-    #slots {
-      margin-top: 30px;
-    }
-
-    .slot {
-      padding: 12px;
-      margin: 8px auto;
-      width: 220px;
-      border-radius: 6px;
-      background: #fff;
-      box-shadow: 0 0 5px #ccc;
-      cursor: pointer;
-    }
-
-    .slot.booked {
-      background: #ffdddd;
-      border-left: 5px solid #c62828;
-      cursor: not-allowed;
-    }
-
-    .slot.available {
-      background: #ddffdd;
-      border-left: 5px solid #2e7d32;
-    }
-
-    .slot.available:hover {
-      background: #b9ffb9;
-    }
-  </style>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f6f8;
+    padding: 20px;
+    text-align: center;
+  }
+  .calendar {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  .day {
+    background: #fff;
+    padding: 12px;
+    width: 130px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,.15);
+  }
+  .day:hover { background: #e3f2fd; }
+  .slot {
+    margin: 8px auto;
+    padding: 12px;
+    width: 240px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .available {
+    background: #e8f5e9;
+    border-left: 6px solid #2e7d32;
+  }
+  .booked {
+    background: #fdecea;
+    border-left: 6px solid #c62828;
+    cursor: not-allowed;
+  }
+</style>
 </head>
+
 <body>
 
-  <h2>Select a Date</h2>
-  <div id="calendar"></div>
+<h2>Select Date</h2>
+<div class="calendar" id="calendar"></div>
 
-  <h2>Available Slots</h2>
-  <div id="slots"></div>
+<h2>Available Slots</h2>
+<div id="slots"></div>
 
 <script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbzV5Q60ecWkejwA855e71jLbuF_kHSdH-PB91uWuzxs367CNStrpP1Jm70-XzBoDpIo/exec";  // <-- replace this
-  const APP_SECRET = "msdamdsmdhmdamd2012"; // <-- replace this
+const API_URL = "https://script.google.com/macros/s/AKfycbwFAdu_dUSPI4mxR9z7clqkHOjZ5AIEWGYEcVg8MP7zzeklIcF71MVSzKf05h1rwKmG/exec";
+const APP_SECRET = "msdamdsmdhmdamd2012";
 
-  // ----------------------------------------------------------
-  // 1. Build Calendar UI
-  // ----------------------------------------------------------
-  const calendarDiv = document.getElementById("calendar");
-  const slotsDiv = document.getElementById("slots");
+// -------- LOCAL DATE FORMAT (NO TIMEZONE SHIFT) --------
+function toLocalDateString(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
-  function buildCalendar() {
-    const today = new Date();
-    const dates = [];
+// -------- BUILD 7-DAY CALENDAR --------
+const calendarDiv = document.getElementById("calendar");
+const slotsDiv = document.getElementById("slots");
 
-    for (let i = 0; i < 7; i++) {
-      const d = new Date();
-      d.setDate(today.getDate() + i);
-      dates.push(d);
+function buildCalendar() {
+  calendarDiv.innerHTML = "";
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+
+    const div = document.createElement("div");
+    div.className = "day";
+    div.innerHTML = `<b>${d.toDateString()}</b>`;
+
+    div.onclick = () => loadSlots(toLocalDateString(d));
+    calendarDiv.appendChild(div);
+  }
+}
+
+// -------- LOAD SLOTS --------
+function loadSlots(dateStr) {
+  slotsDiv.innerHTML = "Loading...";
+
+  fetch(`${API_URL}?date=${dateStr}&secret=${APP_SECRET}`)
+    .then(res => res.json())
+    .then(data => displaySlots(data))
+    .catch(() => slotsDiv.innerHTML = "Error loading slots");
+}
+
+// -------- DISPLAY SLOTS --------
+function displaySlots(slots) {
+  slotsDiv.innerHTML = "";
+
+  if (!slots.length) {
+    slotsDiv.innerHTML = "No slots available";
+    return;
+  }
+
+  slots.forEach(slot => {
+    const div = document.createElement("div");
+    div.className = `slot ${slot.booked ? "booked" : "available"}`;
+    div.textContent = slot.time + (slot.booked ? " (Booked)" : "");
+
+    if (!slot.booked) {
+      div.onclick = () => bookSlot(slot.date, slot.time);
     }
 
-    calendarDiv.innerHTML = "";
+    slotsDiv.appendChild(div);
+  });
+}
 
-    dates.forEach(date => {
-      const dayDiv = document.createElement("div");
-      dayDiv.className = "day";
-      dayDiv.innerHTML = `
-        <b>${date.toDateString()}</b>
-      `;
-      
-      dayDiv.onclick = () => loadSlots(date.toISOString().split("T")[0]);
-      
-      calendarDiv.appendChild(dayDiv);
-    });
-  }
+// -------- BOOK SLOT --------
+function bookSlot(date, time) {
+  const name = prompt("Enter your name");
+  if (!name) return;
 
-  // ----------------------------------------------------------
-  // 2. Load Slots From Backend
-  // ----------------------------------------------------------
-  function loadSlots(dateStr) {
-    slotsDiv.innerHTML = "<p>Loading...</p>";
-
-    fetch(`${API_URL}?date=${dateStr}&secret=${APP_SECRET}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) {
-          slotsDiv.innerHTML = "<p style='color:red'>Error loading slots</p>";
-          return;
-        }
-
-        displaySlots(data, dateStr);
-      })
-      .catch(err => {
-        slotsDiv.innerHTML = "<p style='color:red'>Network error</p>";
-      });
-  }
-
-  // ----------------------------------------------------------
-  // 3. Display Slots
-  // ----------------------------------------------------------
-  function displaySlots(slots, dateStr) {
-    slotsDiv.innerHTML = "";
-
-    slots.forEach(slot => {
-      const div = document.createElement("div");
-      div.className = "slot " + (slot.booked ? "booked" : "available");
-      div.textContent = slot.time + (slot.booked ? " — Booked" : " — Available");
-
-      if (!slot.booked) {
-        div.onclick = () => bookSlot(dateStr, slot.time);
-      }
-
-      slotsDiv.appendChild(div);
-    });
-  }
-
-  // ----------------------------------------------------------
-  // 4. Book a Slot
-  // ----------------------------------------------------------
-  function bookSlot(date, time) {
-    const name = prompt("Enter your name:");
-
-    if (!name) return;
-
-    fetch(API_URL, {
-      method: "POST",
-      body: JSON.stringify({
-        secret: APP_SECRET,
-        date: date,
-        time: time,
-        name: name
-      })
+  fetch(API_URL, {
+    method: "POST",
+    body: JSON.stringify({
+      secret: APP_SECRET,
+      date,
+      time,
+      name
     })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        alert("Slot booked successfully!");
-        loadSlots(date);
-      } else {
-        alert("Error: " + data.error);
-      }
-    });
-  }
+  })
+  .then(res => res.json())
+  .then(data => {
+    alert(data.success ? "Slot booked!" : data.error);
+    loadSlots(date);
+  });
+}
 
-  // Start calendar
-  buildCalendar();
+// Start
+buildCalendar();
 </script>
 
 </body>
